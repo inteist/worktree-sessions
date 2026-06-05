@@ -1,0 +1,48 @@
+{
+  "name": "worktree-sessions",
+  "version": "0.1.0",
+  "description": "Share pi coding-agent sessions across linked git worktrees by storing them in the main worktree.",
+  "type": "module",
+  "main": "./dist/src/worktree-sessions.js",
+  "types": "./dist/src/worktree-sessions.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/worktree-sessions.d.ts",
+      "import": "./dist/src/worktree-sessions.js"
+    },
+    "./pi": {
+      "types": "./dist/pi/index.d.ts",
+      "import": "./dist/pi/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "git",
+    "worktree",
+    "sessions",
+    "git-worktree",
+    "pi-sessions",
+    "session management"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/pi/index.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}
