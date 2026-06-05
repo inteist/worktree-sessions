@@ -1,3 +1,5 @@
+![worktree-sessions preview](./worktree-sessions.png)
+
 # worktree-sessions
 
 Package/Extension that makes linked git worktrees share one session store.

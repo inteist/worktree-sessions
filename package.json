@@ -18,7 +18,8 @@
   },
   "files": [
     "dist/",
-    "README.md"
+    "README.md",
+    "worktree-sessions.png"
   ],
   "scripts": {
     "clean": "rm -rf dist",
@@ -39,7 +40,8 @@
   "pi": {
     "extensions": [
       "./dist/pi/index.js"
-    ]
+    ],
+    "image": "./worktree-sessions.png"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
