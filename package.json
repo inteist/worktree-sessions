@@ -1,6 +1,6 @@
 {
   "name": "worktree-sessions",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Share pi coding-agent sessions across linked git worktrees by storing them in the main worktree.",
   "type": "module",
   "main": "./dist/src/worktree-sessions.js",
