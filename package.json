@@ -1,6 +1,6 @@
 {
   "name": "worktree-sessions",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Share pi coding-agent sessions across linked git worktrees by storing them in the main worktree.",
   "type": "module",
   "main": "./dist/src/worktree-sessions.js",
@@ -25,7 +25,8 @@
     "clean": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run clean && npm run build"
+    "prepack": "npm run clean && npm run build",
+    "deploy": "npm install && npm run check && npm run build && npm publish --access public"
   },
   "keywords": [
     "pi-package",
@@ -41,7 +42,7 @@
     "extensions": [
       "./dist/pi/index.js"
     ],
-    "image": "./worktree-sessions.png"
+    "image": "https://github.com/inteist/worktree-sessions/raw/main/worktree-sessions.png"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
