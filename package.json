@@ -25,6 +25,7 @@
     "clean": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
     "prepack": "npm run clean && npm run build",
     "deploy": "npm install && npm run check && npm run build && npm publish --access public"
   },
