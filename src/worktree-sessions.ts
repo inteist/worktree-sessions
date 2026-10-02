@@ -184,12 +184,17 @@ function ensureDirectoryLinked(linkDir: string, sharedSessionDir: string, worktr
 
   mkdirSync(dirname(linkDir), { recursive: true });
 
-  if (!existsSync(linkDir)) {
-    createDirectorySymlink(linkDir, sharedSessionDir, changed);
+  let stat;
+  try {
+    stat = lstatSync(linkDir);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      createDirectorySymlink(linkDir, sharedSessionDir, changed);
+    } else {
+      warnings.push(`Could not inspect ${linkDir}: ${formatError(error)}`);
+    }
     return { changed, warnings };
   }
-
-  const stat = lstatSync(linkDir);
   if (stat.isSymbolicLink()) {
     const target = resolve(dirname(linkDir), readlinkSync(linkDir));
     if (sameResolvedPath(target, sharedSessionDir)) {
@@ -307,6 +312,10 @@ function realPath(path: string): string {
   } catch {
     return resolve(path);
   }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 function formatError(error: unknown): string {
