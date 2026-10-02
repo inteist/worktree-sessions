@@ -24,7 +24,10 @@ This means:
 - newly-created linked worktrees are linked automatically the first time pi is
   launched inside them;
 - existing `.jsonl` session files in old per-worktree session buckets are moved
-  into the shared store.
+  into the shared store;
+- stale or broken session symlinks are repaired automatically. When a stale
+  target is shared with another project, only sessions whose header matches the
+  current worktree are migrated before the link is updated.
 
 ## Install
 
