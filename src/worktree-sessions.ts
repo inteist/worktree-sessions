@@ -1,21 +1,26 @@
 import { execFileSync } from "node:child_process";
 import {
   appendFileSync,
+  closeSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
+  readSync,
   readdirSync,
   readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
 const SESSION_EXCLUDE_LINE = ".pi/sessions/";
+const SESSION_HEADER_MAX_BYTES = 64 * 1024;
 
 export type WorktreeSessionsResult = GitWorktreeSessionsResult | NotGitWorktreeSessionsResult;
 
@@ -195,13 +200,18 @@ function ensureDirectoryLinked(linkDir: string, sharedSessionDir: string, worktr
     }
     return { changed, warnings };
   }
+
   if (stat.isSymbolicLink()) {
-    const target = resolve(dirname(linkDir), readlinkSync(linkDir));
+    const rawTarget = readlinkSync(linkDir);
+    const target = resolve(dirname(linkDir), rawTarget);
     if (sameResolvedPath(target, sharedSessionDir)) {
       return { changed, warnings };
     }
 
-    warnings.push(`Skipped ${linkDir}; it is already a symlink to ${target}.`);
+    const migration = moveLinkedSessionsForWorktree(target, sharedSessionDir, worktreeRoot);
+    changed.push(...migration.changed);
+    warnings.push(...migration.warnings);
+    relinkDirectorySymlink(linkDir, rawTarget, target, sharedSessionDir, changed, warnings);
     return { changed, warnings };
   }
 
@@ -215,6 +225,47 @@ function ensureDirectoryLinked(linkDir: string, sharedSessionDir: string, worktr
   renameSync(linkDir, backupPath);
   changed.push(`Moved non-directory ${linkDir} to ${backupPath}`);
   createDirectorySymlink(linkDir, sharedSessionDir, changed);
+  return { changed, warnings };
+}
+
+function moveLinkedSessionsForWorktree(
+  fromDir: string,
+  sharedSessionDir: string,
+  worktreeRoot: string,
+): ChangeSet {
+  const changed: string[] = [];
+  const warnings: string[] = [];
+  let entries;
+
+  try {
+    entries = readdirSync(fromDir, { withFileTypes: true });
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      warnings.push(`Could not inspect old session target ${fromDir}: ${formatError(error)}`);
+    }
+    return { changed, warnings };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".jsonl")) {
+      continue;
+    }
+
+    const sourcePath = join(fromDir, entry.name);
+    const sessionCwd = readSessionCwd(sourcePath);
+    if (!sessionCwd || !sameResolvedPath(sessionCwd, worktreeRoot)) {
+      continue;
+    }
+
+    const targetPath = uniqueSessionTarget(sharedSessionDir, entry.name, worktreeRoot);
+    try {
+      renameSync(sourcePath, targetPath);
+      changed.push(`Moved ${sourcePath} to ${targetPath}`);
+    } catch (error) {
+      warnings.push(`Could not move ${sourcePath}: ${formatError(error)}`);
+    }
+  }
+
   return { changed, warnings };
 }
 
@@ -266,6 +317,51 @@ function createDirectorySymlink(linkDir: string, sharedSessionDir: string, chang
   changed.push(`Linked ${linkDir} -> ${sharedSessionDir}`);
 }
 
+function relinkDirectorySymlink(
+  linkDir: string,
+  rawTarget: string,
+  oldTarget: string,
+  sharedSessionDir: string,
+  changed: string[],
+  warnings: string[],
+): void {
+  try {
+    unlinkSync(linkDir);
+    const relativeTarget = relative(dirname(linkDir), sharedSessionDir) || sharedSessionDir;
+    symlinkSync(relativeTarget, linkDir, "dir");
+    changed.push(`Relinked ${linkDir} from ${oldTarget} to ${sharedSessionDir}`);
+  } catch (error) {
+    if (!pathExists(linkDir)) {
+      try {
+        symlinkSync(rawTarget, linkDir, "dir");
+      } catch (restoreError) {
+        warnings.push(`Could not restore ${linkDir} -> ${oldTarget}: ${formatError(restoreError)}`);
+      }
+    }
+    warnings.push(`Could not relink ${linkDir} to ${sharedSessionDir}: ${formatError(error)}`);
+  }
+}
+
+function readSessionCwd(path: string): string | undefined {
+  let descriptor: number | undefined;
+
+  try {
+    descriptor = openSync(path, "r");
+    const buffer = Buffer.alloc(SESSION_HEADER_MAX_BYTES);
+    const bytesRead = readSync(descriptor, buffer, 0, buffer.length, 0);
+    const newlineIndex = buffer.indexOf("\n", 0);
+    const lineEnd = newlineIndex >= 0 && newlineIndex < bytesRead ? newlineIndex : bytesRead;
+    const header = JSON.parse(buffer.toString("utf8", 0, lineEnd)) as { type?: unknown; cwd?: unknown };
+    return header.type === "session" && typeof header.cwd === "string" ? resolve(header.cwd) : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    if (descriptor !== undefined) {
+      closeSync(descriptor);
+    }
+  }
+}
+
 function uniqueSessionTarget(sharedSessionDir: string, fileName: string, worktreeRoot: string): string {
   let targetPath = join(sharedSessionDir, fileName);
   if (!existsSync(targetPath)) {
@@ -311,6 +407,15 @@ function realPath(path: string): string {
     return realpathSync(path);
   } catch {
     return resolve(path);
+  }
+}
+
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
   }
 }
 
