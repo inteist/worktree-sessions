@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  realpathSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -297,16 +298,12 @@ function sanitizePathSegment(path: string): string {
 }
 
 function sameResolvedPath(a: string, b: string): boolean {
-  try {
-    return resolve(a) === resolve(b) || realPath(a) === realPath(b);
-  } catch {
-    return resolve(a) === resolve(b);
-  }
+  return resolve(a) === resolve(b) || realPath(a) === realPath(b);
 }
 
 function realPath(path: string): string {
   try {
-    return lstatSync(path).isSymbolicLink() ? resolve(dirname(path), readlinkSync(path)) : resolve(path);
+    return realpathSync(path);
   } catch {
     return resolve(path);
   }
